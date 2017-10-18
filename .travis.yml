@@ -1,0 +1,20 @@
+branches:
+  only:
+#    - master
+    - accounting
+
+language: perl6
+
+perl6:
+  - latest
+
+before_install:
+  # See also https://www.mongodb.org/dl/linux/
+  - sh $TRAVIS_BUILD_DIR/t/Travis-ci/install-mongodb.sh 3.2.9
+
+install:
+  - rakudobrew build zef
+  - zef --/test --depsonly install IO::Notification::Recursive
+  - zef --/test --depsonly install Config::TOML
+  - zef --/test --depsonly install BSON
+  - zef --/test --depsonly install MongoDB
