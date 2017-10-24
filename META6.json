@@ -5,6 +5,7 @@
   "depends": [
     "GraphQL",
     "HTML::Parser::XML",
+    "HTTP::UserAgent",
     "XML"
   ],
   "description": "",

@@ -1,6 +1,10 @@
 use v6;
-use GraphQL::Http;
 use Test;
+
+use GraphQL::Http;
+use HTTP::UserAgent;
+use HTML::Parser::XML;
+use XML;
 
 diag '';
 
@@ -68,9 +72,9 @@ subtest 'q 2', {
   diag "Query: $query";
 
   my Any $result;
-  my %variables = %(
-    name => 'Marcel'
-  );
+#  my %variables = %(
+#    name => 'Marcel'
+#  );
   $result = $gh.q( $query, :json, :variables(:name<Marcel>));
   diag "Result: $result";
   like $result, /:s '"hello": "Hello Marcel"'/, 'query ok';
@@ -81,24 +85,54 @@ subtest 'q 3', {
   my Str $uri = "https://www.google.nl/search?q=graphql";
 
   my class Query {
+    has XML::Document $!document;
 
-    method hello ( --> Str ) {
-      'Hello World'
+    method uri ( Str :$uri --> Str ) {
+say "U: $uri";
+      my $html;
+
+      my HTTP::UserAgent $ua .= new;
+      $ua.timeout = 10;
+      my $r = $ua.get($uri);
+#say "S: ", $r.is-success;
+      if $r.is-success {
+        $html = $r.content;
+#say "H: $html";
+      }
+
+      else {
+        die "Download not successful";
+      }
+
+      my HTML::Parser::XML $parser .= new;
+      $parser.parse($html);
+say "Index: $parser.index()";
+      $!document = $parser.xmldoc;
+say $!document.perl;
+
+      $uri
     }
+
+#`{{
+    method a ( --> Array ) {
+
+    }
+}}
   }
 
   my GraphQL::Http $gh .= new;
   $gh.set-schema(:class(Query));
 
   my Str $query = Q:q:to/EOQ/;
-      query H {
-        uri
-        hello
+      query Page($uri: String ) {
+        uri(uri: $uri)
       }
       EOQ
 
+  diag "Query: $query";
+
   my Any $result;
-  $result = $gh.q( $query, :json);
+  $result = $gh.q( $query, :json, :variables(%(:uri($uri),)));
   diag "Result: $result";
   like $result, /:s '"hello": "Hello World"'/, 'query ok';
 }
