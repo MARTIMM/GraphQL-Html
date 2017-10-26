@@ -80,65 +80,19 @@ subtest 'q 2', {
 #------------------------------------------------------------------------------
 subtest 'q 3', {
   my Str $uri = "https://www.google.nl/search?q=graphql";
+  my GraphQL::Http $gh .= new(:$uri);
 
   my class Query {
     my XML::Document $document;
 
-    method uri ( Str :$uri --> Str ) {
-
-      my $html;
-      if 't/cached-page.html'.IO ~~ :r {
-        $html = 't/cached-page.html'.IO.slurp;
-      }
-
-      else {
-
-        my HTTP::UserAgent $ua .= new;
-        $ua.timeout = 10;
-        my $r = $ua.get($uri);
-        if $r.is-success {
-          $html = $r.content;
-          't/cached-page.html'.IO.spurt($html);
-        }
-
-        else {
-          die "Download not successful";
-        }
-      }
-
-      my HTML::Parser::XML $parser .= new;
-      $parser.parse($html);
-#say "Index: $parser.index()";
-      try {
-        $document = $parser.xmldoc;
-        CATCH {
-          default {
-            .note;
-          }
-        }
-      }
-#say "Doc ", $document.perl;
-#say "Uri: $uri";
-
-      $uri
-    }
-
     method title ( --> Str ) {
 
-      return '' unless ?$document;
-
-      my $xpath = XML::XPath.new(:$document);
-      $xpath.find('/html/head/title/text()').text
+      $gh.title
     }
 
     method nResults ( --> Str ) {
 
-      return '0 results' unless ?$document;
-
-      my $xpath = XML::XPath.new(:$document);
-      my $x = $xpath.find('//div[@id="resultStats"]/text()').text;
-#note $x.perl;
-      $x
+      $gh.nResults
     }
 
 #`{{
@@ -163,12 +117,10 @@ subtest 'q 3', {
 }}
   }
 
-  my GraphQL::Http $gh .= new;
   $gh.set-schema(:class(Query));
 
   my Str $query = Q:q:to/EOQ/;
-      query Page($uri: String ) {
-        uri(uri: $uri)
+      query Page {
         title
         nResults
       }
@@ -177,9 +129,8 @@ subtest 'q 3', {
 #  diag "Query: $query";
 
   my Any $result;
-  $result = $gh.q( $query, :!json, :variables(%(:uri($uri),)));
+  $result = $gh.q( $query, :!json);
 #  diag "Result: $result.perl()";
-  is $result<data><uri>, $uri, "Uri $result<data><uri> returned";
   is $result<data><title>,
      'graphql - Google zoeken',
      "title found: $result<data><title>";

@@ -4,9 +4,10 @@
   ],
   "depends": [
     "GraphQL",
-    "HTML::Parser::XML",
     "HTTP::UserAgent",
-    "XML"
+    "HTML::Parser::XML",
+    "XML",
+    "XML::XPath"
   ],
   "description": "",
   "license": "Artistic-2.0",

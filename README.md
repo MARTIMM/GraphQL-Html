@@ -14,6 +14,15 @@ Query web pages using GraphQL
 ```
 
 ## Documentation
+
+The interesting stuff on a web page to a user might be one of the following;
+* [ ] Table entries, <td>
+* [ ] (un)nummerated lists, <li>, <dd>
+* [ ] Search info from sites like Google or Bing
+* [ ] Images from Pinterest or Flicker
+
+Some sites like Github, already have a GraphQL API and is better to have a special module for it like GraphQL::Github.
+
 <!--
 * [SCRAM](https://github.com/MARTIMM/Auth-SCRAM/blob/master/doc/SCRAM.pdf)
 * [SCRAM::Client](https://github.com/MARTIMM/Auth-SCRAM/blob/master/doc/Client.pdf)
