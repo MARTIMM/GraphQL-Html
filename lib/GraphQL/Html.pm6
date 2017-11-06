@@ -274,24 +274,30 @@ class GraphQL::Html::QC {
     GraphQL::Html::QC::Image.new(
       :src(%a<src>//'No src'),
       :alt(%a<alt>//'No alt')
-    );
+    )
   }
 
-#`{{
   #----------------------------------------------------------------------------
-  method imageList ( Int :$idx = 0, Int :$count = 1 --> Array ) {
+  method imageList (
+    Int :$idx where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
+    --> Array[GraphQL::Html::QC::Image]
+  ) {
 
     my GraphQL::Html $gh .= instance;
     my $xpath = $gh.get-xpath;
     return GraphQL::Html::QC::Image unless ?$xpath;
 
-    my $i = $xpath.find('//img');
-    my %a = $i[$idx].attribs;
+    my Array[GraphQL::Html::QC::Image] $images;
+    my $xp-images = $xpath.find( '//img', :to-list);
+    for [@$xp-images].splice( $idx, $count) -> $img {
+      my %a = $img.attribs;
 
-    GraphQL::Html::QC::Image.new(
-      :src(%a<src>//'No src'),
-      :alt(%a<alt>//'No alt')
-    );
+      $images.push: GraphQL::Html::QC::Image.new(
+        :src(%a<src>//'No src'),
+        :alt(%a<alt>//'No alt')
+      );
+    }
+
+    $images
   }
-}}
 }
