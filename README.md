@@ -19,7 +19,7 @@ The interesting stuff on a web page to a user might be one of the following;
 * [ ] Table entries, <td>
 * [ ] (un)nummerated lists, <li>, <dd>
 * [ ] Search info from sites like Google or Bing
-* [ ] Images from Pinterest or Flicker
+* [ ] Images from e.g. Qoogle images, Pinterest or Flicker
 
 Some sites like Github, already have a GraphQL API and is better to have a special module for it like GraphQL::Github.
 
