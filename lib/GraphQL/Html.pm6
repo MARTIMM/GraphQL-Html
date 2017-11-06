@@ -240,6 +240,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
 class GraphQL::Html::QC::Image {
   has Str $.src is rw;
   has Str $.alt is rw;
+  has Hash $.other is rw;
 }
 
 #------------------------------------------------------------------------------
@@ -270,10 +271,14 @@ class GraphQL::Html::QC {
 
     my $i = $xpath.find( "//img", :to-list);
     my %a = $i[$idx].attribs;
+    my Str $src = %a<src>:delete;
+    my Str $alt = %a<alt>:delete;
+    my Hash $other = %a;
 
     GraphQL::Html::QC::Image.new(
-      :src(%a<src>//'No src'),
-      :alt(%a<alt>//'No alt')
+      :src($src//'No src'),
+      :alt($alt//'No alt'),
+      :other($other//{})
     )
   }
 

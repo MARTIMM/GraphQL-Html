@@ -6,6 +6,7 @@ change at any time. The public API should not be considered stable.*
 
 * 0.6.0
   * query a list of images
+  * added rest of attributes in an other field of Image
 * 0.5.0
   * caching xpath in memory with a maximum of 10 objects
   * caching query documents in memory

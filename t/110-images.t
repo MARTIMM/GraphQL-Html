@@ -85,4 +85,26 @@ subtest 'q more images', {
 }
 
 #------------------------------------------------------------------------------
+subtest 'q more data on an image', {
+
+  # uri already set above
+  my GraphQL::Html $ghi .= instance;
+
+  my Any $result = $ghi.q( Q:q:to/EOQ/, :!json, :variables(%( :idx(0))));
+
+      query Page( $idx: Int) {
+        image( idx: $idx) {
+          other
+        }
+      }
+      EOQ
+
+#  diag "Result: " ~ $result<data><image><other>.perl();
+
+  is $result<data><image><other><data-reactid>, '59', 'react id is 59';
+  ok $result<data><image><other><srcset>:exists, 'there is a source set';
+  ok $result<data><image><other><style>:exists, 'there is a style too';
+}
+
+#------------------------------------------------------------------------------
 done-testing;
