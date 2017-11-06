@@ -18,5 +18,5 @@
     "GraphQL::Html":            "lib/GraphQL/Html.pm6"
   },
   "source-url": "git://github.com/MARTIMM/.git",
-  "version": "0.5.0"
+  "version": "0.6.0"
 }
