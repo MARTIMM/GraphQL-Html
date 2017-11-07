@@ -13,7 +13,7 @@ subtest 'q 1', {
       }
       EO-SCHEMA
 
-  $gh.set-schema(
+  $gh.schema(
     $schema,
     :resolvers(
       Query => {
@@ -47,7 +47,7 @@ subtest 'q 2', {
   }
 
   my GraphQL::Html $gh .= instance;
-  $gh.set-schema(Query);
+  $gh.schema(Query);
 
   my Str $query = q:to/EOQ/;
       query H( $name1: String, $name2: String) {
@@ -88,7 +88,7 @@ subtest 'q 3', {
     }
   }
 
-  $gh.set-schema(Query);
+  $gh.schema(Query);
 
   my Str $query = Q:q:to/EOQ/;
       query Page {

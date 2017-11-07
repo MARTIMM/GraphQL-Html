@@ -47,10 +47,10 @@ class GraphQL::Html:auth<github:MARTIMM> {
 
     unless $gh-obj.defined {
       $gh-obj = self.bless(:$rootdir);
-      $gh-obj.set-schema(
+      $gh-obj.schema(
         GraphQL::Html::QC,
         GraphQL::Html::QC::Image,
-        :query-class(GraphQL::Html::QC.^name)
+        :query(GraphQL::Html::QC.^name)
       );
     }
 
@@ -119,15 +119,9 @@ class GraphQL::Html:auth<github:MARTIMM> {
   }
 
   #----------------------------------------------------------------------------
-  multi method set-schema ( Str:D $schema!, Any:D :$resolvers! ) {
+  method schema ( *@args, *%opts ) {
 
-    $!schema-object .= new( $schema, :$resolvers);
-  }
-
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  multi method set-schema ( *@types, :$query-class ) {
-
-    $!schema-object .= new( @types, :query($query-class));
+    $!schema-object .= new( |@args, |%opts);
   }
 
   #----------------------------------------------------------------------------
