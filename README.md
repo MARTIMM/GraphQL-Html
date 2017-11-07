@@ -3,8 +3,8 @@
 <!--
 [![Build Status](https://travis-ci.org/MARTIMM/Auth-SCRAM.svg?branch=master)](https://travis-ci.org/MARTIMM/Auth-SCRAM)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/MARTIMM/auth-scram?branch=master&passingText=Windows%20-%20OK&failingText=Windows%20-%20FAIL&pendingText=Windows%20-%20pending&svg=true)](https://ci.appveyor.com/project/MARTIMM/auth-scram/branch/master)
-[![License](http://martimm.github.io/label/License-label.svg)](http://www.perlfoundation.org/artistic_license_2_0)
 -->
+[![License](http://martimm.github.io/label/License-label.svg)](http://www.perlfoundation.org/artistic_license_2_0)
 
 Query web pages using GraphQL
 
