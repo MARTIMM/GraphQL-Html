@@ -25,7 +25,7 @@ subtest 'q image', {
 #  diag "Query: $query";
 
   my Any $result;
-  $result = $gh.q( $query, :!json, :variables(%( :uri($uri3), :idx(0))));
+  $result = $gh.q( $query, :variables(%( :uri($uri3), :idx(0))));
 #  diag "Result: " ~ $result.perl();
 
   like $result<data><title>, /:s beautiful landscaping/, "title found";
@@ -34,7 +34,7 @@ subtest 'q image', {
     /'88fe88575fe34f15b8230692d1463742.jpg' $/,
     "src img 0 found";
 
-  $result = $gh.q( $query, :!json, :variables(%( :uri($uri3), :idx(1))));
+  $result = $gh.q( $query, :variables(%( :uri($uri3), :idx(1))));
 #  diag "Result: " ~ $result.perl();
 
   like $result<data><image><alt>, /:s For something different/, "alt img 1 found";
@@ -65,10 +65,7 @@ subtest 'q more images', {
 #  diag "Query: $query";
 
   my Any $result;
-  $result = $gh.q(
-    $query, :!json,
-    :variables( %( :idx(1), :count(3)))
-  );
+  $result = $gh.q( $query, :variables( %( :idx(1), :count(3))));
 #  diag "Result: " ~ $result.perl();
 
   like $result<data><imageList>[0]<alt>,
@@ -90,7 +87,7 @@ subtest 'q more data on an image', {
   # uri already set above
   my GraphQL::Html $gh .= instance;
 
-  my Any $result = $gh.q( Q:q:to/EOQ/, :!json, :variables(%( :idx(0))));
+  my Any $result = $gh.q( Q:q:to/EOQ/, :variables(%( :idx(0))));
 
       query Page( $idx: Int) {
         image( idx: $idx) {
