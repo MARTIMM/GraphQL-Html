@@ -7,7 +7,7 @@ use GraphQL::Html;
 subtest 'q image', {
   my Str $uri1 = "https://www.google.nl/search?q=graphql";
   my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
-  my GraphQL::Html $ghi .= instance;
+  my GraphQL::Html $gh .= instance;
 
   # uri via query
   my Str $query = Q:q:to/EOQ/;
@@ -25,7 +25,7 @@ subtest 'q image', {
 #  diag "Query: $query";
 
   my Any $result;
-  $result = $ghi.q( $query, :!json, :variables(%( :uri($uri3), :idx(0))));
+  $result = $gh.q( $query, :!json, :variables(%( :uri($uri3), :idx(0))));
 #  diag "Result: " ~ $result.perl();
 
   like $result<data><title>, /:s beautiful landscaping/, "title found";
@@ -34,7 +34,7 @@ subtest 'q image', {
     /'88fe88575fe34f15b8230692d1463742.jpg' $/,
     "src img 0 found";
 
-  $result = $ghi.q( $query, :!json, :variables(%( :uri($uri3), :idx(1))));
+  $result = $gh.q( $query, :!json, :variables(%( :uri($uri3), :idx(1))));
 #  diag "Result: " ~ $result.perl();
 
   like $result<data><image><alt>, /:s For something different/, "alt img 1 found";
@@ -46,12 +46,12 @@ subtest 'q image', {
 #------------------------------------------------------------------------------
 subtest 'q more images', {
   my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
-  my GraphQL::Html $ghi .= instance;
+  my GraphQL::Html $gh .= instance;
 
   # load uri before query but we could do without because
   # 1) singleton is not removed
   # 2) uri is same as above so current-page comes from the same source
-  $ghi.uri(:uri($uri3));
+  $gh.uri(:uri($uri3));
 
   my Str $query = Q:q:to/EOQ/;
 
@@ -65,7 +65,7 @@ subtest 'q more images', {
 #  diag "Query: $query";
 
   my Any $result;
-  $result = $ghi.q(
+  $result = $gh.q(
     $query, :!json,
     :variables( %( :idx(1), :count(3)))
   );
@@ -88,9 +88,9 @@ subtest 'q more images', {
 subtest 'q more data on an image', {
 
   # uri already set above
-  my GraphQL::Html $ghi .= instance;
+  my GraphQL::Html $gh .= instance;
 
-  my Any $result = $ghi.q( Q:q:to/EOQ/, :!json, :variables(%( :idx(0))));
+  my Any $result = $gh.q( Q:q:to/EOQ/, :!json, :variables(%( :idx(0))));
 
       query Page( $idx: Int) {
         image( idx: $idx) {
