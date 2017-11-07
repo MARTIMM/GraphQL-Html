@@ -29,10 +29,7 @@ subtest 'q 1', {
       EOQ
 
   my Any $result;
-  $result = $gh.q( $query, :json);
-  like $result, /:s '"hello": "Hello World"'/, 'query ok';
-
-  $result = $gh.q( $query, :!json);
+  $result = $gh.q($query);
   is $result<data><hello>, "Hello World", 'Hash result ok';
 }
 
@@ -58,11 +55,11 @@ subtest 'q 2', {
       EOQ
 
   my Any $result;
-  $result = $gh.q( $query, :json, :variables(%(:name1<Marcel>, :name2<Loes>)));
+  $result = $gh.q( $query, :variables(%(:name1<Marcel>, :name2<Loes>)));
 
-  like $result, /:s '"h1": "Hello Marcel"'/, 'answer h1 ok';
-  like $result, /:s '"h2": "Hello Loes"'/, 'answer h2 ok';
-  like $result, /:s '"h3": "Hello World"'/, 'answer h3 ok';
+  is $result<data><h1>, "Hello Marcel", 'answer h1 ok';
+  is $result<data><h2>, "Hello Loes", 'answer h2 ok';
+  is $result<data><h3>, "Hello World", 'answer h3 ok';
 }
 
 #------------------------------------------------------------------------------
@@ -99,9 +96,7 @@ subtest 'q 3', {
       EOQ
 
   my Any $result;
-note "start";
-  $result = $gh.q( $query, :!json);
-note "done";
+  $result = $gh.q($query);
   is $result<data><title>, 'graphql - Google zoeken', "title found";
   like $result<data><nResults>, /:s Ongeveer .* resultaten/, "results found";
 }

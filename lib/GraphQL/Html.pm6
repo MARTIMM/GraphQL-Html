@@ -163,9 +163,9 @@ class GraphQL::Html:auth<github:MARTIMM> {
   }
 
   #----------------------------------------------------------------------------
-  method q ( Str $query, Bool :$json = False, :%variables = %(), --> Any ) {
+  method q ( Str $query, :%variables = %(), --> Hash ) {
 
-    my $result;
+    my Hash $result = {};
 
     # create a key to store queries
     my Str $sha1 = self.sha1($query);
@@ -179,17 +179,19 @@ class GraphQL::Html:auth<github:MARTIMM> {
 
     # execute the query with any variables
     with $!schema-object.execute( :document($doc), :%variables) {
-      if $json {
-        $result = .to-json;
-      }
 
-      else {
-        my Str $json = .to-json;
-#note "JSon: ", $json;
-        $json ~~ s:g/\n/ /;
-        $json ~~ s:g/\\ <?before <-[\\]>>/\\\\/;
-        $result = from-json($json);
-      }
+      my Str $jsonText = .to-json;
+
+#note "JSon: ", $jsonText;
+      # remove some non-json structures
+
+      # drop the linefeed char
+      $jsonText ~~ s:g/\n/ /;
+
+      # single escape chars must be doubled. sometime it appears
+      # in error messages
+      $jsonText ~~ s:g/\\ <?before <-[\\]>>/\\\\/;
+      $result = from-json($jsonText);
     }
 
     $result;
