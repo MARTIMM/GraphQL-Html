@@ -7,7 +7,7 @@ use GraphQL::Html;
 subtest 'q image', {
   my Str $uri1 = "https://www.google.nl/search?q=graphql";
   my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
-  my GraphQL::Html $gh .= instance;
+  my GraphQL::Html $gh .= instance(:rootdir('./t/Root'));
 
   # uri via query
   my Str $query = Q:q:to/EOQ/;
@@ -66,7 +66,6 @@ subtest 'q more images', {
 
   my Any $result;
   $result = $gh.q( $query, :variables( %( :idx(1), :count(3))));
-#  diag "Result: " ~ $result.perl();
 
   like $result<data><imageList>[0]<alt>,
     /:s For something different/,
@@ -92,6 +91,7 @@ subtest 'q more data on an image', {
       query Page( $idx: Int) {
         image( idx: $idx) {
           other
+          style
         }
       }
       EOQ
@@ -100,7 +100,7 @@ subtest 'q more data on an image', {
 
   is $result<data><image><other><data-reactid>, '59', 'react id is 59';
   ok $result<data><image><other><srcset>:exists, 'there is a source set';
-  ok $result<data><image><other><style>:exists, 'there is a style too';
+  ok $result<data><image><style>:exists, 'there is a style too';
 }
 
 #------------------------------------------------------------------------------

@@ -6,7 +6,7 @@ use GraphQL::Html;
 #------------------------------------------------------------------------------
 subtest 'q 1', {
 
-  my GraphQL::Html $gh .= instance;
+  my GraphQL::Html $gh .= instance(:rootdir('./t/Root'));
   my Str $schema = Q:q:to/EO-SCHEMA/;
       type Query {
         hello: String
