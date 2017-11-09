@@ -96,11 +96,20 @@ class GraphQL::Html:auth<github:MARTIMM> {
       else {
         $status = 'page downloaded';
 
-        my HTTP::UserAgent $ua .= new;
-        $ua.timeout = 10;
-        my $r = $ua.get($!uri);
-        die "Download not successful" unless $r.is-success;
-        $xml = $r.content;
+        if $!uri ~~ /^ 'file://' / {
+          my $u = $!uri;
+          $u ~~ s/^ 'file://' //;
+          $xml = $u.IO.slurp;
+        }
+
+        else {
+          my HTTP::UserAgent $ua .= new;
+          $ua.timeout = 10;
+          my $r = $ua.get($!uri);
+          die "Download not successful" unless $r.is-success;
+          $xml = $r.content;
+        }
+
         $page-path.IO.spurt($xml);
       }
 
@@ -184,16 +193,25 @@ class GraphQL::Html:auth<github:MARTIMM> {
 
       my Str $jsonText = .to-json;
 
-#note "JSon: ", $jsonText;
       # remove some non-json structures
 
       # drop the linefeed char
       $jsonText ~~ s:g/\n/ /;
 
+      #$jsonText ~~ s:g/\"/\\\"/;
+
       # single escape chars must be doubled. sometime it appears
       # in error messages
       $jsonText ~~ s:g/\\ <?before <-[\\]>>/\\\\/;
+
       $result = from-json($jsonText);
+
+      CATCH {
+        default {
+          note "Decoding json error; ", .message;
+          note "Json text: $jsonText";
+        }
+      }
     }
 
     $result;
@@ -206,6 +224,19 @@ class GraphQL::Html:auth<github:MARTIMM> {
   method uri ( Str:D :$!uri --> Str ) {
 
     self.load-page;
+  }
+
+  #----------------------------------------------------------------------------
+  method base ( --> Str ) {
+
+    my $xpath = self.get-xpath;
+    return '' unless ?$xpath;
+
+    my $base = $xpath.find('head/base/@href');
+    $base //= $xpath.find('//base/@href');
+    $base //= '';
+
+    $base
   }
 
   #----------------------------------------------------------------------------
@@ -222,13 +253,64 @@ class GraphQL::Html:auth<github:MARTIMM> {
   }
 
   #----------------------------------------------------------------------------
-  method searchText ( Str :$xpath --> Str ) {
+  method search ( Str :$xpath --> Str ) {
 
     my $xpathObj = self.get-xpath;
     return '' unless ?$xpathObj;
 
-    $xpathObj.find($xpath ~ '/text()').text;
+    my @nodes = $xpathObj.find($xpath);
+    my $text = (
+      map { $_ ~~ Str
+              ?? $_
+              !! ( $_ ~~ XML::Text
+                     ?? .text
+                     !! ($_ ~~ XML::Element
+                           ?? $xpathObj.find(
+                                './/text()', :start($_), :to-list
+                              )>>.text.join(' ')
+                           !! '-'
+                        )
+                 )
+         }, @nodes;
+    ).join(' ');
+
+    CATCH { .note }
+
+    $text
   }
+
+#`{{
+  #----------------------------------------------------------------------------
+  method searchList ( Str :$xpath --> Array[Str] ) {
+
+    my Array[Str] $text .= new;
+    my $xpathObj = self.get-xpath;
+    return $text unless ?$xpathObj;
+
+    my @nodes = $xpathObj.find($xpath);
+    for @nodes {
+note $_, ', ', $_.WHAT;
+      when Str {
+        $text.push: $_;
+      }
+
+      when XML::Text {
+        $text.push: .text.Str;
+      }
+
+      when XML::Element {
+        for |($xpathObj.find( './/text()', :start($_), :to-list)) {
+note "T: ", .text, ', ', .text.WHAT, ', ', .text.defined;
+          $text.push: $_.text.Str;
+        }
+      }
+    }
+
+    CATCH { .note }
+
+    @$text;
+  }
+}}
 }
 
 #==============================================================================

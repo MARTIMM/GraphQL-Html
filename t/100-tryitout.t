@@ -71,7 +71,7 @@ subtest 'q 3', {
 
     method uri ( Str :$uri --> Str ) {
 
-      $gh.uri(:$uri);
+      $gh.uri(:$uri)
     }
 
     method title ( --> Str ) {
@@ -79,9 +79,61 @@ subtest 'q 3', {
       $gh.title
     }
 
-    method nResults ( --> Str ) {
+    method search ( Str :$xpath --> Str ) {
 
-      $gh.nResults
+      $gh.search(:$xpath)
+    }
+  }
+
+  $gh.schema(Query);
+
+  my Str $query = Q:q:to/EOQ/;
+      query Page( $uri: String, $xpath: String) {
+        uri( uri: $uri)
+        title
+        search( xpath: $xpath)
+      }
+      EOQ
+
+  my Any $result;
+  $result = $gh.q( $query, :variables( %( :$uri, :xpath('//div[@id="resultStats"]'))));
+  diag "\nR: $result.perl()";
+  is $result<data><title>, 'graphql - Google zoeken', "title found";
+  like $result<data><search>, /:s Ongeveer .* resultaten/, "results found";
+}
+
+#`{{
+#------------------------------------------------------------------------------
+subtest 'q 4', {
+  my $cwd = ~$*CWD;
+  my $test-file = 't/Root/test-file.html';
+  my Str $uri = "file:///$cwd/$test-file";
+  my GraphQL::Html $gh .= instance;
+
+  unless $test-file.IO ~~ :r {
+    $test-file.IO.spurt(Q:q:to/EOHTML/);
+      <html>
+        <head>
+          <base href="https://google.nl/">
+        </head>
+        <body>
+          <h1>text 1</h1>
+          <p>and some paragraph text</p>
+        </body>
+      </html>
+      EOHTML
+  }
+
+  $gh.uri(:$uri);
+
+  my class Query {
+
+    method base ( --> Str ) {
+      $gh.base;
+    }
+
+    method searchList ( --> Str ) {
+      $gh.searchList(:xpath<//body>);
     }
   }
 
@@ -89,17 +141,19 @@ subtest 'q 3', {
 
   my Str $query = Q:q:to/EOQ/;
       query Page {
-        uri( uri: "https://www.google.nl/search?q=graphql" )
-        title
-        nResults
+        base
+        searchList
       }
       EOQ
 
   my Any $result;
-  $result = $gh.q($query);
-  is $result<data><title>, 'graphql - Google zoeken', "title found";
-  like $result<data><nResults>, /:s Ongeveer .* resultaten/, "results found";
+  $result = $gh.q( $query, :variables( %( :$uri, :xpath('//div[@id="resultStats"]'))));
+  diag "\nR: $result.perl()";
+  is $result<data><base>, 'https://google.nl/', "base found";
+  is $result<data><searchList>[0], 'text 1', '1st text found';
+  is $result<data><searchList>[1], 'and some paragraph text', '2nd text found';
 }
+}}
 
 #------------------------------------------------------------------------------
 done-testing;
