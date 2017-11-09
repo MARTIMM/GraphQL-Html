@@ -3,5 +3,7 @@
     <base href="https://google.nl/">
   </head>
   <body>
+    <h1>text 1</h1>
+    <p>and some paragraph text</p>
   </body>
 </html>

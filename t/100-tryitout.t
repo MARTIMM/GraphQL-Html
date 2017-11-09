@@ -102,7 +102,6 @@ subtest 'q 3', {
   like $result<data><search>, /:s Ongeveer .* resultaten/, "results found";
 }
 
-#`{{
 #------------------------------------------------------------------------------
 subtest 'q 4', {
   my $cwd = ~$*CWD;
@@ -142,18 +141,18 @@ subtest 'q 4', {
   my Str $query = Q:q:to/EOQ/;
       query Page {
         base
-        searchList
       }
       EOQ
 
   my Any $result;
-  $result = $gh.q( $query, :variables( %( :$uri, :xpath('//div[@id="resultStats"]'))));
-  diag "\nR: $result.perl()";
+  my $xpath = '//div[@id="resultStats"]';
+  $result = $gh.q( $query, :variables( %( :$uri, :$xpath)));
+  #diag "\nR: $result.perl()";
   is $result<data><base>, 'https://google.nl/', "base found";
-  is $result<data><searchList>[0], 'text 1', '1st text found';
-  is $result<data><searchList>[1], 'and some paragraph text', '2nd text found';
+  #is $result<data><searchList>[0], 'text 1', '1st text found';
+  #is $result<data><searchList>[1], 'and some paragraph text', '2nd text found';
 }
-}}
+
 
 #------------------------------------------------------------------------------
 done-testing;

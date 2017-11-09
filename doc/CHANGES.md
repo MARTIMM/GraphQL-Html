@@ -8,6 +8,7 @@ change at any time. The public API should not be considered stable.*
   * query links and link lists with r without images
   * search with user provided xpath. If search returns XML::Elements /text() is automatically added and text extracted.
   * read files from local disk using file:// protocol
+  * added base field
 * 0.6.0
   * query a list of images
   * added rest of attributes in an other field of Image
