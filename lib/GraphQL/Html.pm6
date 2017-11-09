@@ -222,13 +222,12 @@ class GraphQL::Html:auth<github:MARTIMM> {
   }
 
   #----------------------------------------------------------------------------
-  method nResults ( --> Str ) {
+  method searchText ( Str :$xpath --> Str ) {
 
-    my $xpath = self.get-xpath;
-    return '0 results' unless ?$xpath;
+    my $xpathObj = self.get-xpath;
+    return '' unless ?$xpathObj;
 
-    my $x = $xpath.find('//div[@id="resultStats"]/text()').text;
-    $x
+    $xpathObj.find($xpath ~ '/text()').text;
   }
 }
 
@@ -338,15 +337,32 @@ class GraphQL::Html::QC {
   }
 
   #----------------------------------------------------------------------------
-  method link ( Int :$idx = 0 --> GraphQL::Html::QC::Link ) {
+  # Return link data. When $withImage is True, only links with image content is
+  # returned. When False, images and text content is returned
+  method link (
+    Int :$idx = 0, Bool :$withImage = False
+    --> GraphQL::Html::QC::Link
+  ) {
 
     my GraphQL::Html $gh .= instance;
     my $xpath = $gh.get-xpath;
 
     return GraphQL::Html::QC::Link unless ?$xpath;
 
-    my @linkElements = $xpath.find( "//a", :to-list);
-    my $linkElement = @linkElements[$idx];
+    my $linkElement;
+    if $withImage {
+      my @linkElements = $xpath.find( "//a//img", :to-list);
+      $linkElement = @linkElements[$idx];
+      while $linkElement.name ne 'a' {
+        $linkElement .= parent;
+      }
+    }
+
+    else {
+      my @linkElements = $xpath.find( "//a", :to-list);
+      $linkElement = @linkElements[$idx];
+    }
+
     my GraphQL::Html::QC::Link $link .= new(|$linkElement.attribs);
 
     my @textElements = $xpath.find( ".//text()", :start($linkElement), :to-list);
@@ -369,7 +385,9 @@ class GraphQL::Html::QC {
 
   #----------------------------------------------------------------------------
   method linkList (
-    Int :$idx is copy where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
+    Int :$idx is copy where ($_ >= 0) = 0,
+    Int :$count where ($_ >= 0) = 1,
+    Bool :$withImage = False
     --> Array[GraphQL::Html::QC::Link]
   ) {
 
@@ -379,13 +397,20 @@ class GraphQL::Html::QC {
     my $xpath = $gh.get-xpath;
     return $links unless ?$xpath;
 
-    my @linkElements = $xpath.find( '//a', :to-list);
+    my @linkElements = $xpath.find( $withImage ?? '//a//img' !! '//a', :to-list);
     $idx = min( @linkElements.elems - 1, $idx);
 
     my @le = ?$count ?? @linkElements.splice( $idx)
                      !! @linkElements.splice( $idx, $count);
 
-    for @le -> $linkElement {
+    for @le -> $linkElement is copy {
+      # when with image is True, we searched with //a//img. now search for parent 'a'
+      if $withImage {
+        while $linkElement.name ne 'a' {
+          $linkElement .= parent;
+        }
+      }
+
       my $linkObj = GraphQL::Html::QC::Link.new(| $linkElement.attribs);
       my @imageElements = $xpath.find( ".//img", :start($linkElement), :to-list) // ();
       for @imageElements -> $imageElement {
@@ -402,7 +427,8 @@ class GraphQL::Html::QC {
   }
 
   #----------------------------------------------------------------------------
-  method linkedImage ( Int :$idx = 0 --> GraphQL::Html::QC::Link ) {
+  # search for links with an image content
+  method linkImage ( Int :$idx = 0 --> GraphQL::Html::QC::Link ) {
 
     my GraphQL::Html $gh .= instance;
     my $xpath = $gh.get-xpath;
