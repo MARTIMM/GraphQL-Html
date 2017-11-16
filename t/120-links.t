@@ -9,6 +9,25 @@ subtest 'q link', {
   my Str $uri = 'https://nl.pinterest.com/pin/626211523159394612/';
   my GraphQL::Html $gh .= instance(:rootdir('./t/Root'));
 
+  my Str $query-not-yet-possible = Q:q:to/EOQ/;
+
+      fragment imgs on Link {
+        imageList {
+          src
+          alt
+        }
+      }
+
+      query pinterest ( $uri: String, $idx: Int) {
+        page(uri: $uri)
+        link(idx: $idx) {
+          href
+          text
+          ...imgs
+        }
+      }
+      EOQ
+
   my Str $query = Q:q:to/EOQ/;
 
       query pinterest ( $uri: String, $idx: Int) {
@@ -34,10 +53,12 @@ subtest 'q link', {
   is $result<data><link><text>, 'gebruikt cookies', 'link text ok';
 
   $result = $gh.q( $query, :variables(%( :$uri, :idx(13))));
-#  diag "\nResult: " ~ $result.perl();
-  is $result<data><link><imageList>[0]<alt>,
-     'If only I had a front porch.',
-     'found alt of first image of 13th link';
+  diag "\nResult: " ~ $result.perl();
+  is $result<data><page>, "page from memory cache", "page read from cache";
+  is $result<data><link><href>, '/pin/240450067580525288/',
+     'href is found of 14th link';
+  is $result<data><link><imageList>[0]<alt>, 'If only I had a front porch.',
+     'found alt of first image of 14th link';
 }
 
 #------------------------------------------------------------------------------

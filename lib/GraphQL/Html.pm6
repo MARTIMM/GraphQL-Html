@@ -7,18 +7,308 @@ use HTML::Parser::XML;
 use XML;
 use XML::XPath;
 
-#------------------------------------------------------------------------------
-# introduce the query class and variable classes here
-class GraphQL::Html::QC { ... }
-class GraphQL::Html::QC::Image { ... }
-class GraphQL::Html::QC::Link { ... }
+#==============================================================================
+class GraphQL::Html { ... }
 
-#------------------------------------------------------------------------------
+#==============================================================================
+# Query class
+class GraphQL::Html::QC {
+
+  #============================================================================
+  # Query variable classes
+
+  role CommonAttribs {
+    has Str $.id is rw;
+    has Str $.class is rw;
+    has Str $.style is rw;
+
+    has Hash $.other is rw;
+
+    submethod set-common ( %attribs ) {
+      $!id = %attribs<id>:delete if %attribs<id>:exists;
+      $!class = %attribs<class>:delete if %attribs<class>:exists;
+      $!style = %attribs<style>:delete if %attribs<style>:exists;
+      $!other = %attribs;
+    }
+  }
+
+  #============================================================================
+  # Image variable <img>
+  class Image does CommonAttribs {
+    has Str $.src is rw;
+    has Str $.alt is rw;
+
+    submethod BUILD ( *%attribs ) {
+      $!src = %attribs<src>:delete if %attribs<src>:exists;
+      $!alt = %attribs<alt>:delete if %attribs<alt>:exists;
+
+      self.set-common(%attribs);
+    }
+  }
+
+  #============================================================================
+  # Link variable <a>
+  class Link does CommonAttribs {
+    has Str $.href is rw;
+    has Str $.target is rw;
+
+    has Str $.text is rw;
+    has Array[GraphQL::Html::QC::Image] $.imageList is rw;
+
+    submethod BUILD ( *%attribs ) {
+      $!href = %attribs<href>:delete if %attribs<href>:exists;
+      $!target = %attribs<target>:delete if %attribs<target>:exists;
+
+      self.set-common(%attribs);
+    }
+  }
+
+  #----------------------------------------------------------------------------
+  # The rest of the class definitions
+  #----------------------------------------------------------------------------
+  method page ( Str :$uri --> Str ) {
+
+    GraphQL::Html.instance.page(:$uri);
+  }
+
+  #----------------------------------------------------------------------------
+  method title ( --> Str ) {
+
+    GraphQL::Html.instance.title
+  }
+
+  #----------------------------------------------------------------------------
+  method image ( Int :$idx = 0 --> Image ) {
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+
+    return Image unless ?$xpath;
+
+    my @imageElements = $xpath.find( "//img", :to-list);
+    Image.new(| @imageElements[$idx].attribs)
+  }
+
+  #----------------------------------------------------------------------------
+  # select images from document and return a slice starting from $idx for $count
+  # images. When $count is -1 or 0, all images starting with $idx are selected.
+  method imageList (
+    Int :$idx is copy where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
+    --> Array[Image]
+  ) {
+
+    my Array[Image] $imageList .= new;
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+    return $imageList unless ?$xpath;
+
+    my @imageElements = $xpath.find( '//img', :to-list);
+    $idx = min( @imageElements.elems - 1, $idx);
+    my @ie = ?$count ?? @imageElements.splice( $idx, $count)
+                     !! @imageElements.splice($idx);
+
+    for @ie -> $imageElement {
+      $imageList.push: Image.new(| $imageElement.attribs);
+    }
+
+    CATCH { .note; }
+
+    $imageList
+  }
+
+  #----------------------------------------------------------------------------
+  # Return link data. When $withImage is True, only links with image content is
+  # returned. When False, images and text content is returned
+  method link (
+    Int :$idx = 0, Bool :$withImage = False
+    --> Link
+  ) {
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+
+    return Link unless ?$xpath;
+
+    my $linkElement;
+    if $withImage {
+      my @linkElements = $xpath.find( "//a//img", :to-list);
+      $linkElement = @linkElements[$idx];
+      while $linkElement.name ne 'a' {
+        $linkElement .= parent;
+      }
+    }
+
+    else {
+      my @linkElements = $xpath.find( "//a", :to-list);
+      $linkElement = @linkElements[$idx];
+    }
+
+    my Link $link .= new(|$linkElement.attribs);
+
+    my @textElements = $xpath.find( ".//text()", :start($linkElement), :to-list);
+    $link.text = @textElements>>.text.join(' ') if ? @textElements;
+
+    my @imageElements = $xpath.find( ".//img", :start($linkElement), :to-list) // ();
+    if ? @imageElements {
+      my Array[Image] $imageList;
+      for @imageElements -> $imageElement {
+        $imageList.push: Image.new(| $imageElement.attribs);
+      }
+
+      $link.imageList = $imageList;
+    }
+
+    CATCH { .note; }
+
+    $link
+  }
+
+  #----------------------------------------------------------------------------
+  method linkList (
+    Int :$idx is copy where ($_ >= 0) = 0,
+    Int :$count where ($_ >= 0) = 1,
+    Bool :$withImage = False
+    --> Array[Link]
+  ) {
+
+    my Array[Link] $links .= new;
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+    return $links unless ?$xpath;
+
+    my @linkElements = $xpath.find( $withImage ?? '//a//img' !! '//a', :to-list);
+    $idx = min( @linkElements.elems - 1, $idx);
+
+    my @le = ?$count ?? @linkElements.splice( $idx)
+                     !! @linkElements.splice( $idx, $count);
+
+    for @le -> $linkElement is copy {
+      # when with image is True, we searched with //a//img. now search for parent 'a'
+      if $withImage {
+        while $linkElement.name ne 'a' {
+          $linkElement .= parent;
+        }
+      }
+
+      my $linkObj = Link.new(| $linkElement.attribs);
+      my @imageElements = $xpath.find( ".//img", :start($linkElement), :to-list) // ();
+      for @imageElements -> $imageElement {
+
+        $linkObj.imageList.push: Image.new(| $imageElement.attribs);
+      }
+
+      $links.push($linkObj);
+    }
+
+    CATCH { .note; }
+
+    $links
+  }
+
+  #----------------------------------------------------------------------------
+  # search for links with an image content
+  method linkImage ( Int :$idx = 0 --> Link ) {
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+
+    return Image unless ?$xpath;
+
+    my $i = $xpath.find( "//img", :to-list);
+    my %a = $i[$idx].attribs;
+    my Str $src = %a<src>:delete;
+    my Str $alt = %a<alt>:delete;
+    my Hash $other = %a;
+
+    Image.new(
+      :src($src//'No src'),
+      :alt($alt//'No alt'),
+      :other($other//{})
+    )
+  }
+
+#`{{
+  #----------------------------------------------------------------------------
+  method imageList (
+    Int :$idx where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
+    --> Array[Image]
+  ) {
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+    return Image unless ?$xpath;
+
+    my Array[Image] $imageList;
+    my $xp-imageList = $xpath.find( '//img', :to-list);
+    for [@$xp-imageList].splice( $idx, $count) -> $img {
+      my %a = $img.attribs;
+
+      $imageList.push: Image.new(
+        :src(%a<src>//'No src'),
+        :alt(%a<alt>//'No alt')
+      );
+    }
+
+    $imageList
+  }
+
+
+  #----------------------------------------------------------------------------
+  method image ( Int :$idx = 0 --> Image ) {
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+
+    return Image unless ?$xpath;
+
+    my $i = $xpath.find( "//img", :to-list);
+    my %a = $i[$idx].attribs;
+    my Str $src = %a<src>:delete;
+    my Str $alt = %a<alt>:delete;
+    my Hash $other = %a;
+
+    Image.new(
+      :src($src//'No src'),
+      :alt($alt//'No alt'),
+      :other($other//{})
+    )
+  }
+
+  #----------------------------------------------------------------------------
+  method imageList (
+    Int :$idx where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
+    --> Array[Image]
+  ) {
+
+    my GraphQL::Html $gh .= instance;
+    my $xpath = $gh.get-xpath;
+    return Image unless ?$xpath;
+
+    my Array[Image] $imageList;
+    my $xp-imageList = $xpath.find( '//img', :to-list);
+    for [@$xp-imageList].splice( $idx, $count) -> $img {
+      my %a = $img.attribs;
+
+      $imageList.push: Image.new(
+        :src(%a<src>//'No src'),
+        :alt(%a<alt>//'No alt')
+      );
+    }
+
+    $imageList
+  }
+}}
+}
+
+#==============================================================================
 # this class is a singleton class and is called from the query and its
 # variables to download html pages and
 class GraphQL::Html:auth<github:MARTIMM> {
 
-  has GraphQL::Schema $!schema-object;
+  #------------------------------------------------------------------------------
+  has GraphQL::Schema $.schema-object;
 
   # $!uri holds current website page. $!current-page-name is the sha1 code
   # of the uri and is used as key in the hash of $!queries and $!xpath-pages.
@@ -50,12 +340,6 @@ class GraphQL::Html:auth<github:MARTIMM> {
 
     unless $gh-obj.defined {
       $gh-obj = self.bless(:$rootdir);
-      $gh-obj.schema(
-        GraphQL::Html::QC,
-        GraphQL::Html::QC::Image,
-        GraphQL::Html::QC::Link,
-        :query(GraphQL::Html::QC.^name)
-      );
     }
 
     $gh-obj
@@ -72,6 +356,13 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $!xpath-pages = {};
     $!page-names = [];
     $!current-page-idx = -1;
+
+    $!schema-object .= new(
+      GraphQL::Html::QC,
+      GraphQL::Html::QC::Image,
+      GraphQL::Html::QC::Link,
+      :query(GraphQL::Html::QC.^name)
+    );
   }
 
   #----------------------------------------------------------------------------
@@ -321,293 +612,3 @@ note "T: ", .text, ', ', .text.WHAT, ', ', .text.defined;
   }
 }}
 }
-
-#==============================================================================
-# Query variable classes
-
-role GraphQL::Html::QC::CommonAttribs {
-  has Str $.id is rw;
-  has Str $.class is rw;
-  has Str $.style is rw;
-
-  has Hash $.other is rw;
-
-  submethod set-common ( %attribs ) {
-    $!id = %attribs<id>:delete if %attribs<id>:exists;
-    $!class = %attribs<class>:delete if %attribs<class>:exists;
-    $!style = %attribs<style>:delete if %attribs<style>:exists;
-    $!other = %attribs;
-  }
-}
-
-#==============================================================================
-# Image variable <img>
-class GraphQL::Html::QC::Image does GraphQL::Html::QC::CommonAttribs {
-  has Str $.src is rw;
-  has Str $.alt is rw;
-
-  submethod BUILD ( *%attribs ) {
-    $!src = %attribs<src>:delete if %attribs<src>:exists;
-    $!alt = %attribs<alt>:delete if %attribs<alt>:exists;
-
-    self.set-common(%attribs);
-  }
-}
-
-#==============================================================================
-# Link variable <a>
-class GraphQL::Html::QC::Link does GraphQL::Html::QC::CommonAttribs {
-  has Str $.href is rw;
-  has Str $.target is rw;
-
-  has Str $.text is rw;
-  has Array[GraphQL::Html::QC::Image] $.imageList is rw;
-
-  submethod BUILD ( *%attribs ) {
-    $!href = %attribs<href>:delete if %attribs<href>:exists;
-    $!target = %attribs<target>:delete if %attribs<target>:exists;
-
-    self.set-common(%attribs);
-  }
-}
-
-#==============================================================================
-# Query class
-class GraphQL::Html::QC {
-
-  #----------------------------------------------------------------------------
-  method page ( Str :$uri --> Str ) {
-
-    GraphQL::Html.instance.page(:$uri);
-  }
-
-  #----------------------------------------------------------------------------
-  method title ( --> Str ) {
-
-    GraphQL::Html.instance.title
-  }
-
-  #----------------------------------------------------------------------------
-  method image ( Int :$idx = 0 --> GraphQL::Html::QC::Image ) {
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-
-    return GraphQL::Html::QC::Image unless ?$xpath;
-
-    my @imageElements = $xpath.find( "//img", :to-list);
-    GraphQL::Html::QC::Image.new(| @imageElements[$idx].attribs)
-  }
-
-  #----------------------------------------------------------------------------
-  # select images from document and return a slice starting from $idx for $count
-  # images. When $count is -1 or 0, all images starting with $idx are selected.
-  method imageList (
-    Int :$idx is copy where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
-    --> Array[GraphQL::Html::QC::Image]
-  ) {
-
-    my Array[GraphQL::Html::QC::Image] $imageList .= new;
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-    return $imageList unless ?$xpath;
-
-    my @imageElements = $xpath.find( '//img', :to-list);
-    $idx = min( @imageElements.elems - 1, $idx);
-    my @ie = ?$count ?? @imageElements.splice( $idx, $count)
-                     !! @imageElements.splice($idx);
-
-    for @ie -> $imageElement {
-      $imageList.push: GraphQL::Html::QC::Image.new(| $imageElement.attribs);
-    }
-
-    CATCH { .note; }
-
-    $imageList
-  }
-
-  #----------------------------------------------------------------------------
-  # Return link data. When $withImage is True, only links with image content is
-  # returned. When False, images and text content is returned
-  method link (
-    Int :$idx = 0, Bool :$withImage = False
-    --> GraphQL::Html::QC::Link
-  ) {
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-
-    return GraphQL::Html::QC::Link unless ?$xpath;
-
-    my $linkElement;
-    if $withImage {
-      my @linkElements = $xpath.find( "//a//img", :to-list);
-      $linkElement = @linkElements[$idx];
-      while $linkElement.name ne 'a' {
-        $linkElement .= parent;
-      }
-    }
-
-    else {
-      my @linkElements = $xpath.find( "//a", :to-list);
-      $linkElement = @linkElements[$idx];
-    }
-
-    my GraphQL::Html::QC::Link $link .= new(|$linkElement.attribs);
-
-    my @textElements = $xpath.find( ".//text()", :start($linkElement), :to-list);
-    $link.text = @textElements>>.text.join(' ') if ? @textElements;
-
-    my @imageElements = $xpath.find( ".//img", :start($linkElement), :to-list) // ();
-    if ? @imageElements {
-      my Array[GraphQL::Html::QC::Image] $imageList;
-      for @imageElements -> $imageElement {
-        $imageList.push: GraphQL::Html::QC::Image.new(| $imageElement.attribs);
-      }
-
-      $link.imageList = $imageList;
-    }
-
-    CATCH { .note; }
-
-    $link
-  }
-
-  #----------------------------------------------------------------------------
-  method linkList (
-    Int :$idx is copy where ($_ >= 0) = 0,
-    Int :$count where ($_ >= 0) = 1,
-    Bool :$withImage = False
-    --> Array[GraphQL::Html::QC::Link]
-  ) {
-
-    my Array[GraphQL::Html::QC::Link] $links .= new;
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-    return $links unless ?$xpath;
-
-    my @linkElements = $xpath.find( $withImage ?? '//a//img' !! '//a', :to-list);
-    $idx = min( @linkElements.elems - 1, $idx);
-
-    my @le = ?$count ?? @linkElements.splice( $idx)
-                     !! @linkElements.splice( $idx, $count);
-
-    for @le -> $linkElement is copy {
-      # when with image is True, we searched with //a//img. now search for parent 'a'
-      if $withImage {
-        while $linkElement.name ne 'a' {
-          $linkElement .= parent;
-        }
-      }
-
-      my $linkObj = GraphQL::Html::QC::Link.new(| $linkElement.attribs);
-      my @imageElements = $xpath.find( ".//img", :start($linkElement), :to-list) // ();
-      for @imageElements -> $imageElement {
-
-        $linkObj.imageList.push: GraphQL::Html::QC::Image.new(| $imageElement.attribs);
-      }
-
-      $links.push($linkObj);
-    }
-
-    CATCH { .note; }
-
-    $links
-  }
-
-  #----------------------------------------------------------------------------
-  # search for links with an image content
-  method linkImage ( Int :$idx = 0 --> GraphQL::Html::QC::Link ) {
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-
-    return GraphQL::Html::QC::Image unless ?$xpath;
-
-    my $i = $xpath.find( "//img", :to-list);
-    my %a = $i[$idx].attribs;
-    my Str $src = %a<src>:delete;
-    my Str $alt = %a<alt>:delete;
-    my Hash $other = %a;
-
-    GraphQL::Html::QC::Image.new(
-      :src($src//'No src'),
-      :alt($alt//'No alt'),
-      :other($other//{})
-    )
-  }
-
-#`{{
-  #----------------------------------------------------------------------------
-  method imageList (
-    Int :$idx where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
-    --> Array[GraphQL::Html::QC::Image]
-  ) {
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-    return GraphQL::Html::QC::Image unless ?$xpath;
-
-    my Array[GraphQL::Html::QC::Image] $imageList;
-    my $xp-imageList = $xpath.find( '//img', :to-list);
-    for [@$xp-imageList].splice( $idx, $count) -> $img {
-      my %a = $img.attribs;
-
-      $imageList.push: GraphQL::Html::QC::Image.new(
-        :src(%a<src>//'No src'),
-        :alt(%a<alt>//'No alt')
-      );
-    }
-
-    $imageList
-  }
-
-
-  #----------------------------------------------------------------------------
-  method image ( Int :$idx = 0 --> GraphQL::Html::QC::Image ) {
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-
-    return GraphQL::Html::QC::Image unless ?$xpath;
-
-    my $i = $xpath.find( "//img", :to-list);
-    my %a = $i[$idx].attribs;
-    my Str $src = %a<src>:delete;
-    my Str $alt = %a<alt>:delete;
-    my Hash $other = %a;
-
-    GraphQL::Html::QC::Image.new(
-      :src($src//'No src'),
-      :alt($alt//'No alt'),
-      :other($other//{})
-    )
-  }
-
-  #----------------------------------------------------------------------------
-  method imageList (
-    Int :$idx where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
-    --> Array[GraphQL::Html::QC::Image]
-  ) {
-
-    my GraphQL::Html $gh .= instance;
-    my $xpath = $gh.get-xpath;
-    return GraphQL::Html::QC::Image unless ?$xpath;
-
-    my Array[GraphQL::Html::QC::Image] $imageList;
-    my $xp-imageList = $xpath.find( '//img', :to-list);
-    for [@$xp-imageList].splice( $idx, $count) -> $img {
-      my %a = $img.attribs;
-
-      $imageList.push: GraphQL::Html::QC::Image.new(
-        :src(%a<src>//'No src'),
-        :alt(%a<alt>//'No alt')
-      );
-    }
-
-    $imageList
-  }
-}}
-  }
