@@ -39,7 +39,11 @@ Bugs, todo and known limitations
 
 Use zef to install the package like so.
 ```
-$ zef install GraphQL::Http
+$ zef install GraphQL::Html
+```
+or
+```
+$ zef install https://github.com/MARTIMM/GraphQL-Html.git
 ```
 
 ## Versions of PERL, MOARVM
@@ -51,3 +55,6 @@ This project is tested with latest Rakudo built on MoarVM implementing Perl v6.
 ```
 Marcel Timmerman (MARTIMM on github)
 ```
+
+<!-- References -->
+[graphql apollo]: https://dev-blog.apollodata.com/the-anatomy-of-a-graphql-query-6dffa9e9e747
