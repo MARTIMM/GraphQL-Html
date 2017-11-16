@@ -21,16 +21,18 @@ class GraphQL::Html:auth<github:MARTIMM> {
   has GraphQL::Schema $!schema-object;
 
   # $!uri holds current website page. $!current-page-name is the sha1 code
-  # of the uri and is used as key in the hash $!queries and $!xpath.
+  # of the uri and is used as key in the hash of $!queries and $!xpath-pages.
   has Str $!uri;
   has Str $!current-page-name;
 
   # in memory cache of sha1 keys pointing to query parsed documents
   has Hash $!queries;
 
-  # in memory cache of xpath document of loaded page. its value is an array of
-  # 2 elements. one for a ref count and one for the xpath object
-  has Hash $!xpath;
+  # in memory cache of xpath document of loaded page. its value is an array;
+  # [ use count, an xpath object]
+  has Hash $!xpath-pages;
+  has Array $!page-names;
+  has Int $!current-page-idx;
 
   # path where config and cache is stored
   has Str $!rootdir;
@@ -67,7 +69,9 @@ class GraphQL::Html:auth<github:MARTIMM> {
     mkdir( "$!rootdir/cache", 0o750) unless "$!rootdir/cache".IO.d;
 
     $!queries = {};
-    $!xpath = {};
+    $!xpath-pages = {};
+    $!page-names = [];
+    $!current-page-idx = -1;
   }
 
   #----------------------------------------------------------------------------
@@ -82,7 +86,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $!current-page-name = self.sha1($!uri);
     my Str $page-path = "$!rootdir/cache/$!current-page-name";
 
-    if $!xpath{$!current-page-name}:exists {
+    if $!xpath-pages{$!current-page-name}:exists {
       $status = 'page from memory cache';
     }
 
@@ -119,7 +123,8 @@ class GraphQL::Html:auth<github:MARTIMM> {
       self!set-xpath(XML::XPath.new(:$document));
     }
 
-#note "Sts: $status";
+    $!page-names[++$!current-page-idx] = $!current-page-name;
+#note "Sts: $!current-page-idx, $!page-names[$!current-page-idx], $status";
     $status
   }
 
@@ -138,9 +143,9 @@ class GraphQL::Html:auth<github:MARTIMM> {
   #----------------------------------------------------------------------------
   method get-xpath ( --> XML::XPath ) {
 
-    if $!xpath{$!current-page-name}:exists {
-      $!xpath{$!current-page-name}[0]++;
-      $!xpath{$!current-page-name}[1]
+    if $!xpath-pages{$!page-names[$!current-page-idx]}:exists {
+      $!xpath-pages{$!page-names[$!current-page-idx]}[0]++;
+      $!xpath-pages{$!page-names[$!current-page-idx]}[1]
     }
 
     else {
@@ -151,30 +156,34 @@ class GraphQL::Html:auth<github:MARTIMM> {
   #----------------------------------------------------------------------------
   method !set-xpath ( XML::XPath:D $xpath ) {
 
-#note "set xpath $!xpath.elems(), $!current-page-name, $xpath";
+#note "set xpath $!xpath-pages.elems(), $!page-names[$!current-page-idx], $xpath";
     # check if cache is not growing too big. if so, remove least used one
-    # checks done in load-page() ensures that $!current-page-name is
+    # checks done in load-page() ensures that $!page-names[$!current-page-idx] is
     # not stored yet
-    if $!xpath.elems > 10 {
-      my Int $min-ref = Inf;
-      my Str $min-ref-key;
-      for $!xpath.kv -> $k, $v {
-        if $min-ref > $v[0] {
-          $min-ref-key = $k;
-          $min-ref = $v[0];
+    if $!xpath-pages.elems > 10 {
+      my Int $min-use = Inf;
+      my Str $min-use-key;
+      for $!xpath-pages.kv -> $k, $v {
+        if $min-use > $v[0] {
+          $min-use-key = $k;
+          $min-use = $v[0];
         }
       }
 
-      $!xpath{$min-ref-key}:delete;
+      $!xpath-pages{$min-use-key}:delete;
     }
 
     # store xpath object and referenced once
-    $!xpath{$!current-page-name} = [ 1, $xpath];
-#note "Cache xpath $!current-page-name, $!xpath{$!current-page-name}";
+    $!xpath-pages{$!current-page-name} = [ 1, $xpath];
+#note "Cache xpath $!current-page-name, $!xpath-pages{$!current-page-name}";
   }
 
   #----------------------------------------------------------------------------
   method q ( Str $query, :%variables = %(), --> Hash ) {
+
+    # initialize a fresh linked pages list
+    $!page-names = [];
+    $!current-page-idx = -1;
 
     my Hash $result = {};
 
@@ -221,7 +230,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
   # Following methods can be used from query and its variables
   #----------------------------------------------------------------------------
   # uri can be called using the the object too
-  method uri ( Str:D :$!uri --> Str ) {
+  method page ( Str:D :$!uri --> Str ) {
 
     self.load-page;
   }
@@ -367,9 +376,9 @@ class GraphQL::Html::QC::Link does GraphQL::Html::QC::CommonAttribs {
 class GraphQL::Html::QC {
 
   #----------------------------------------------------------------------------
-  method uri ( Str :$uri --> Str ) {
+  method page ( Str :$uri --> Str ) {
 
-    GraphQL::Html.instance.uri(:$uri);
+    GraphQL::Html.instance.page(:$uri);
   }
 
   #----------------------------------------------------------------------------

@@ -12,8 +12,8 @@ subtest 'q image', {
   # uri via query
   my Str $query = Q:q:to/EOQ/;
 
-      query Page( $uri: String, $idx: Int) {
-        uri( uri: $uri)
+      query Q1 ( $uri: String, $idx: Int) {
+        page( uri: $uri)
         title
         image( idx: $idx) {
           src
@@ -48,14 +48,10 @@ subtest 'q more images', {
   my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
   my GraphQL::Html $gh .= instance;
 
-  # load uri before query but we could do without because
-  # 1) singleton is not removed
-  # 2) uri is same as above so current-page comes from the same source
-  $gh.uri(:uri($uri3));
-
   my Str $query = Q:q:to/EOQ/;
 
-      query Page( $idx: Int, $count: Int) {
+      query Page( $uri: String, $idx: Int, $count: Int) {
+        page(uri: $uri)
         imageList( idx: $idx, count: $count) {
           alt
         }
@@ -65,7 +61,7 @@ subtest 'q more images', {
 #  diag "Query: $query";
 
   my Any $result;
-  $result = $gh.q( $query, :variables( %( :idx(1), :count(3))));
+  $result = $gh.q( $query, :variables( %( :uri($uri3), :idx(1), :count(3))));
 
   like $result<data><imageList>[0]<alt>,
     /:s For something different/,
@@ -85,10 +81,12 @@ subtest 'q more data on an image', {
 
   # uri already set above
   my GraphQL::Html $gh .= instance;
+  my Str $uri = 'https://nl.pinterest.com/pin/626211523159394612/';
 
-  my Any $result = $gh.q( Q:q:to/EOQ/, :variables(%( :idx(0))));
+  my Any $result = $gh.q( Q:q:to/EOQ/, :variables(%( :$uri, :idx(0))));
 
-      query Page( $idx: Int) {
+      query Page ( $uri: String, $idx: Int) {
+        page(uri: $uri)
         image( idx: $idx) {
           other
           style

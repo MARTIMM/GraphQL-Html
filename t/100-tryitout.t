@@ -68,28 +68,16 @@ subtest 'q 3', {
   my GraphQL::Html $gh .= instance;
 
   my class Query {
-
-    method uri ( Str :$uri --> Str ) {
-
-      $gh.uri(:$uri)
-    }
-
-    method title ( --> Str ) {
-
-      $gh.title
-    }
-
-    method search ( Str :$xpath --> Str ) {
-
-      $gh.search(:$xpath)
-    }
+    method page ( Str :$uri --> Str ) { $gh.page(:$uri) }
+    method title ( --> Str ) { $gh.title }
+    method search ( Str :$xpath --> Str ) { $gh.search(:$xpath) }
   }
 
   $gh.schema(Query);
 
   my Str $query = Q:q:to/EOQ/;
-      query Page( $uri: String, $xpath: String) {
-        uri( uri: $uri)
+      query Q1 ( $uri: String, $xpath: String) {
+        page( uri: $uri)
         title
         search( xpath: $xpath)
       }
@@ -97,7 +85,7 @@ subtest 'q 3', {
 
   my Any $result;
   $result = $gh.q( $query, :variables( %( :$uri, :xpath('//div[@id="resultStats"]'))));
-  diag "\nR: $result.perl()";
+  #diag "\nR: $result.perl()";
   is $result<data><title>, 'graphql - Google zoeken', "title found";
   like $result<data><search>, /:s Ongeveer .* resultaten/, "results found";
 }
@@ -123,23 +111,17 @@ subtest 'q 4', {
       EOHTML
   }
 
-  $gh.uri(:$uri);
-
   my class Query {
-
-    method base ( --> Str ) {
-      $gh.base;
-    }
-
-    method searchList ( --> Str ) {
-      $gh.searchList(:xpath<//body>);
-    }
+    method page ( Str :$uri --> Str ) { GraphQL::Html.instance.page(:$uri); }
+    method base ( --> Str ) { $gh.base; }
+    method searchList ( --> Str ) { $gh.searchList(:xpath<//body>); }
   }
 
   $gh.schema(Query);
 
   my Str $query = Q:q:to/EOQ/;
-      query Page {
+      query Q1( $uri: String) {
+        page(uri: $uri)
         base
       }
       EOQ

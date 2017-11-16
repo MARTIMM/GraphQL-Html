@@ -6,14 +6,14 @@ use GraphQL::Html;
 #------------------------------------------------------------------------------
 subtest 'q link', {
 
-  my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
+  my Str $uri = 'https://nl.pinterest.com/pin/626211523159394612/';
   my GraphQL::Html $gh .= instance(:rootdir('./t/Root'));
-  $gh.uri(:uri($uri3));
 
   my Str $query = Q:q:to/EOQ/;
 
-      query Page( $idx: Int) {
-        link( idx: $idx) {
+      query pinterest ( $uri: String, $idx: Int) {
+        page(uri: $uri)
+        link(idx: $idx) {
           href
           text
           imageList {
@@ -25,7 +25,7 @@ subtest 'q link', {
       EOQ
 
   my Any $result;
-  $result = $gh.q( $query, :variables(%(:idx(0))));
+  $result = $gh.q( $query, :variables(%( :$uri, :idx(0))));
 #  diag "Result: " ~ $result.perl();
 
   is $result<data><link><href>,
@@ -33,8 +33,7 @@ subtest 'q link', {
     "href of link 0 found";
   is $result<data><link><text>, 'gebruikt cookies', 'link text ok';
 
-
-  $result = $gh.q( $query, :variables(%(:idx(13))));
+  $result = $gh.q( $query, :variables(%( :$uri, :idx(13))));
 #  diag "\nResult: " ~ $result.perl();
   is $result<data><link><imageList>[0]<alt>,
      'If only I had a front porch.',
@@ -44,13 +43,13 @@ subtest 'q link', {
 #------------------------------------------------------------------------------
 subtest 'q link list', {
 
-  my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
+  my Str $uri = 'https://nl.pinterest.com/pin/626211523159394612/';
   my GraphQL::Html $gh .= instance;
-  $gh.uri(:uri($uri3));
 
   my Str $query = Q:q:to/EOQ/;
 
-      query Page( $idx: Int, $count: Int) {
+      query pinterest ( $uri: String, $idx: Int, $count: Int) {
+        page( uri: $uri)
         linkList( idx: $idx, count: $count) {
           href
           imageList {
@@ -61,7 +60,7 @@ subtest 'q link list', {
       EOQ
 
   my Any $result;
-  $result = $gh.q( $query, :variables(%( :idx(4), :count(10))));
+  $result = $gh.q( $query, :variables(%( :idx(4), :count(10), :$uri)));
 #  diag "Result: " ~ $result.perl();
 
   is $result<data><linkList>[0]<href>,
@@ -84,13 +83,13 @@ subtest 'q link list', {
 #------------------------------------------------------------------------------
 subtest 'q link with always an image', {
 
-  my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
+  my Str $uri = 'https://nl.pinterest.com/pin/626211523159394612/';
   my GraphQL::Html $gh .= instance(:rootdir('./t/Root'));
-  $gh.uri(:uri($uri3));
 
   my Str $query = Q:q:to/EOQ/;
 
-      query Page( $idx: Int) {
+      query pinterest ( $uri: String, $idx: Int) {
+        page( uri: $uri)
         link( idx: $idx, withImage: true) {
           href
           imageList {
@@ -101,7 +100,7 @@ subtest 'q link with always an image', {
       EOQ
 
   my Any $result;
-  $result = $gh.q( $query, :variables(%(:idx(0))));
+  $result = $gh.q( $query, :variables(%( :$uri, :idx(0))));
 #  diag "Result: " ~ $result.perl();
 
   is $result<data><link><href>,
@@ -111,8 +110,7 @@ subtest 'q link with always an image', {
        /:s What beautiful landscaping and decorating/,
        'link image alt ok';
 
-
-  $result = $gh.q( $query, :variables(%(:idx(5))));
+  $result = $gh.q( $query, :variables(%( :$uri, :idx(5))));
 #  diag "\nResult: " ~ $result.perl();
   like $result<data><link><imageList>[0]<alt>,
        /:s Beauty pumpkin and flowers photo/,
@@ -122,13 +120,13 @@ subtest 'q link with always an image', {
 #------------------------------------------------------------------------------
 subtest 'q link list with always an image', {
 
-  my Str $uri3 = 'https://nl.pinterest.com/pin/626211523159394612/';
+  my Str $uri = 'https://nl.pinterest.com/pin/626211523159394612/';
   my GraphQL::Html $gh .= instance(:rootdir('./t/Root'));
-  $gh.uri(:uri($uri3));
 
   my Str $query = Q:q:to/EOQ/;
 
-      query Page( $idx: Int) {
+      query pinterest ( $uri: String, $idx: Int) {
+        page( uri: $uri)
         linkList( idx: $idx, count: 3, withImage: true) {
           href
           imageList {
@@ -139,7 +137,7 @@ subtest 'q link list with always an image', {
       EOQ
 
   my Any $result;
-  $result = $gh.q( $query, :variables(%(:idx(0))));
+  $result = $gh.q( $query, :variables(%( :$uri, :idx(0))));
 #  diag "Result: " ~ $result.perl();
 
   is $result<data><linkList>[2]<href>,
