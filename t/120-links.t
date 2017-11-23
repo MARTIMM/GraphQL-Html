@@ -53,8 +53,7 @@ subtest 'q link', {
   is $result<data><link><text>, 'gebruikt cookies', 'link text ok';
 
   $result = $gh.q( $query, :variables(%( :$uri, :idx(13))));
-  diag "\nResult: " ~ $result.perl();
-  is $result<data><page>, "page from memory cache", "page read from cache";
+  #diag "\nResult: " ~ $result.perl();
   is $result<data><link><href>, '/pin/240450067580525288/',
      'href is found of 14th link';
   is $result<data><link><imageList>[0]<alt>, 'If only I had a front porch.',

@@ -12,7 +12,7 @@ class GraphQL::Html { ... }
 
 #==============================================================================
 # Query class
-class GraphQL::Html::QC {
+class GraphQL::Html::QC:auth<github:MARTIMM> {
 
   #============================================================================
   # Query variable classes
@@ -51,29 +51,65 @@ class GraphQL::Html::QC {
   class Link does CommonAttribs {
     has Str $.href is rw;
     has Str $.target is rw;
-
     has Str $.text is rw;
     has Array[GraphQL::Html::QC::Image] $.imageList is rw;
 
+    #--------------------------------------------------------------------------
     submethod BUILD ( *%attribs ) {
       $!href = %attribs<href>:delete if %attribs<href>:exists;
       $!target = %attribs<target>:delete if %attribs<target>:exists;
 
       self.set-common(%attribs);
     }
+
+#`{{
+    #--------------------------------------------------------------------------
+    method imageList ( Array[GraphQL::Html::QC::Image] $il ) {
+
+      $!img-list = $il if ?$il;
+      $!img-list
+    }
+}}
+  }
+
+  #============================================================================
+  # Link variable <a>
+  class Page {
+
+    has Str $.status is rw;
+    has Str $.title is rw;
+    has Array[GraphQL::Html::QC::Image] $.imageList is rw;
+    has Array[GraphQL::Html::QC::Link] $.linkList is rw;
   }
 
   #----------------------------------------------------------------------------
-  # The rest of the class definitions
+  # The methods of the class GraphQL::Html::QC
   #----------------------------------------------------------------------------
-  method page ( Str :$uri --> Str ) {
+  method page (
+    Str :$uri,
+    Int :$idx where ($_ >= 0) = 0,
+    Int :$count where ($_ >= 0) = 1
+    --> Page
+  ) {
 
-    GraphQL::Html.instance.page(:$uri);
+note "Page $uri";
+
+    my GraphQL::Html $ghi .= instance;
+    my Page $page .= new;
+    $page.status = $ghi.page(:$uri);
+    $page.title = $ghi.title;
+    $page.imageList = self.imageList;
+    $page.linkList = self.linkList;
+
+    CATCH { .note; }
+
+    $page
   }
 
   #----------------------------------------------------------------------------
   method title ( --> Str ) {
 
+note "Title";
     GraphQL::Html.instance.title
   }
 
@@ -157,6 +193,15 @@ class GraphQL::Html::QC {
       }
 
       $link.imageList = $imageList;
+#`{{
+    $link.imageList = Array[GraphQL::Html::QC::Image].new(
+      lazy gather {
+        for $xpath.find( ".//img", :start($linkElement), :to-list) // () -> $imageElement {
+          take Image.new(| $imageElement.attribs);
+        }
+      }
+    );
+}}
     }
 
     CATCH { .note; }
@@ -221,6 +266,8 @@ class GraphQL::Html::QC {
     my Str $src = %a<src>:delete;
     my Str $alt = %a<alt>:delete;
     my Hash $other = %a;
+
+    CATCH { .note; }
 
     Image.new(
       :src($src//'No src'),
@@ -361,6 +408,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
       GraphQL::Html::QC,
       GraphQL::Html::QC::Image,
       GraphQL::Html::QC::Link,
+      GraphQL::Html::QC::Page,
       :query(GraphQL::Html::QC.^name)
     );
   }
