@@ -26,7 +26,7 @@ subtest 'q image', {
 
   my Any $result;
   $result = $gh.q( $query, :variables(%( :uri($uri3), :idx(0))));
-#  diag "Result: " ~ $result.perl();
+  diag "Result: " ~ $result.perl();
 
   like $result<data><title>, /:s beautiful landscaping/, "title found";
   like $result<data><image><alt>, /:s beautiful landscaping/, "alt img 0 found";

@@ -7,15 +7,19 @@ use HTML::Parser::XML;
 use XML;
 use XML::XPath;
 
-#==============================================================================
+#===============================================================================
+# this class is used by GraphQL::Html::QMS so must make it known
 class GraphQL::Html { ... }
 
-#==============================================================================
-# Query class
-class GraphQL::Html::QC:auth<github:MARTIMM> {
+#===============================================================================
+enum qcl-state <QUERY MUTATION SUBSCRIPTION>;
 
-  #============================================================================
-  # Query variable classes
+#===============================================================================
+# class used for queries, mutations and subscriptions
+class GraphQL::Html::QMS {
+
+  #=============================================================================
+  # Query variable classes and roles
 
   role CommonAttribs {
     has Str $.id is rw;
@@ -32,7 +36,7 @@ class GraphQL::Html::QC:auth<github:MARTIMM> {
     }
   }
 
-  #============================================================================
+  #=============================================================================
   # Image variable <img>
   class Image does CommonAttribs {
     has Str $.src is rw;
@@ -46,15 +50,15 @@ class GraphQL::Html::QC:auth<github:MARTIMM> {
     }
   }
 
-  #============================================================================
+  #=============================================================================
   # Link variable <a>
   class Link does CommonAttribs {
     has Str $.href is rw;
     has Str $.target is rw;
     has Str $.text is rw;
-    has Array[GraphQL::Html::QC::Image] $.imageList is rw;
+    has Array[GraphQL::Html::QMS::Image] $.imageList is rw;
 
-    #--------------------------------------------------------------------------
+    #---------------------------------------------------------------------------
     submethod BUILD ( *%attribs ) {
       $!href = %attribs<href>:delete if %attribs<href>:exists;
       $!target = %attribs<target>:delete if %attribs<target>:exists;
@@ -63,8 +67,8 @@ class GraphQL::Html::QC:auth<github:MARTIMM> {
     }
 
 #`{{
-    #--------------------------------------------------------------------------
-    method imageList ( Array[GraphQL::Html::QC::Image] $il ) {
+    #---------------------------------------------------------------------------
+    method imageList ( Array[GraphQL::Html::QMS::Image] $il ) {
 
       $!img-list = $il if ?$il;
       $!img-list
@@ -72,19 +76,49 @@ class GraphQL::Html::QC:auth<github:MARTIMM> {
 }}
   }
 
-  #============================================================================
+  #=============================================================================
   # Link variable <a>
   class Page {
 
+    has GraphQL::Html $!ghi;
+    has GraphQL::Html::QMS $!query;
+
     has Str $.status is rw;
-    has Str $.title is rw;
-    has Array[GraphQL::Html::QC::Image] $.imageList is rw;
-    has Array[GraphQL::Html::QC::Link] $.linkList is rw;
+    has Str $!title;
+    has Array[GraphQL::Html::QMS::Image] $.imageList;
+    has Array[GraphQL::Html::QMS::Link] $.linkList;
+
+    #---------------------------------------------------------------------------
+    submethod BUILD (
+      GraphQL::Html :$!ghi, GraphQL::Html::QMS :$!query,
+    ) {
+note "Page build: ", self.^mro;
+    }
+
+    #---------------------------------------------------------------------------
+    method title ( --> Str ) {
+note "T Q/M: ", $!query.WHAT;
+      $!title = $!ghi.title;
+      $!title
+    }
+
+    #---------------------------------------------------------------------------
+    method imageList ( --> GraphQL::Html::QMS::Image ) is rw {
+      $!imageList = $!query.imageList;
+      $!imageList
+    }
+
+    #---------------------------------------------------------------------------
+    method linkList ( --> GraphQL::Html::QMS::Link ) is rw {
+      $!linkList = $!query.linkList;
+      $!linkList
+    }
   }
 
-  #----------------------------------------------------------------------------
-  # The methods of the class GraphQL::Html::QC
-  #----------------------------------------------------------------------------
+
+  #-----------------------------------------------------------------------------
+  # The methods of the class GraphQL::Html::QMS
+  #-----------------------------------------------------------------------------
   method page (
     Str :$uri,
     Int :$idx where ($_ >= 0) = 0,
@@ -92,28 +126,27 @@ class GraphQL::Html::QC:auth<github:MARTIMM> {
     --> Page
   ) {
 
-note "Page $uri";
+note "Page $uri, ", self.^mro;
 
     my GraphQL::Html $ghi .= instance;
-    my Page $page .= new;
-    $page.status = $ghi.page(:$uri);
-    $page.title = $ghi.title;
-    $page.imageList = self.imageList;
-    $page.linkList = self.linkList;
+    my Page $page .= new( :$ghi, :query(self));
 
-    CATCH { .note; }
+    # get the page loaded and set status
+    $page.status = $ghi.page(:$uri);
+
+#    CATCH { .note; }
 
     $page
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method title ( --> Str ) {
 
-note "Title";
+note "Title, ", self.WHAT, ', ', self.^mro;#, ', ', self.gql-state;
     GraphQL::Html.instance.title
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method image ( Int :$idx = 0 --> Image ) {
 
     my GraphQL::Html $gh .= instance;
@@ -125,7 +158,7 @@ note "Title";
     Image.new(| @imageElements[$idx].attribs)
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   # select images from document and return a slice starting from $idx for $count
   # images. When $count is -1 or 0, all images starting with $idx are selected.
   method imageList (
@@ -153,7 +186,7 @@ note "Title";
     $imageList
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   # Return link data. When $withImage is True, only links with image content is
   # returned. When False, images and text content is returned
   method link (
@@ -194,7 +227,7 @@ note "Title";
 
       $link.imageList = $imageList;
 #`{{
-    $link.imageList = Array[GraphQL::Html::QC::Image].new(
+    $link.imageList = Array[GraphQL::Html::QMS::Image].new(
       lazy gather {
         for $xpath.find( ".//img", :start($linkElement), :to-list) // () -> $imageElement {
           take Image.new(| $imageElement.attribs);
@@ -209,7 +242,7 @@ note "Title";
     $link
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method linkList (
     Int :$idx is copy where ($_ >= 0) = 0,
     Int :$count where ($_ >= 0) = 1,
@@ -252,7 +285,7 @@ note "Title";
     $links
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   # search for links with an image content
   method linkImage ( Int :$idx = 0 --> Link ) {
 
@@ -277,7 +310,7 @@ note "Title";
   }
 
 #`{{
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method imageList (
     Int :$idx where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
     --> Array[Image]
@@ -302,7 +335,7 @@ note "Title";
   }
 
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method image ( Int :$idx = 0 --> Image ) {
 
     my GraphQL::Html $gh .= instance;
@@ -323,7 +356,7 @@ note "Title";
     )
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method imageList (
     Int :$idx where ($_ >= 0) = 0, Int :$count where ($_ >= 0) = 1
     --> Array[Image]
@@ -349,12 +382,26 @@ note "Title";
 }}
 }
 
-#==============================================================================
+#===============================================================================
+# Query class
+class GraphQL::Html::Query is GraphQL::Html::QMS {
+
+  has qcl-state $.gql-state = QUERY;
+}
+
+#===============================================================================
+# Mutation class will not be used for we do not modify web pages
+class GraphQL::Html::Mutation is GraphQL::Html::QMS {
+
+  has qcl-state $.gql-state = MUTATION;
+}
+
+#===============================================================================
 # this class is a singleton class and is called from the query and its
 # variables to download html pages and
 class GraphQL::Html:auth<github:MARTIMM> {
 
-  #------------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   has GraphQL::Schema $.schema-object;
 
   # $!uri holds current website page. $!current-page-name is the sha1 code
@@ -377,11 +424,11 @@ class GraphQL::Html:auth<github:MARTIMM> {
   # singleton object
   my GraphQL::Html $gh-obj;
 
-  #----------------------------------------------------------------------------
-  #| singleton class, use instance to initialize or to get object
+  #-----------------------------------------------------------------------------
+  # singleton class, use instance to initialize or to get object
   submethod new ( ) { !!! }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   # can only initialize once with rootdir
   method instance ( Str :$rootdir ) {
 
@@ -392,7 +439,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $gh-obj
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   submethod BUILD ( Str :$!rootdir ) {
 
     $!rootdir //= "$*HOME/.graphql-html";
@@ -405,15 +452,17 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $!current-page-idx = -1;
 
     $!schema-object .= new(
-      GraphQL::Html::QC,
-      GraphQL::Html::QC::Image,
-      GraphQL::Html::QC::Link,
-      GraphQL::Html::QC::Page,
-      :query(GraphQL::Html::QC.^name)
+      GraphQL::Html::Query,
+#      GraphQL::Html::Mutation,
+      GraphQL::Html::QMS::Image,
+      GraphQL::Html::QMS::Link,
+      GraphQL::Html::QMS::Page,
+      :query(GraphQL::Html::Query.^name),
+#      :mutation(GraphQL::Html::Mutation.^name)
     );
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method load-page ( --> Str ) {
 
     return 'empty uri' unless $!uri;
@@ -467,19 +516,19 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $status
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method sha1 ( Str:D $txt --> Str ) {
 
     sha1($txt.encode)>>.fmt('%02x').join;
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method schema ( *@args, *%opts ) {
 
     $!schema-object .= new( |@args, |%opts);
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method get-xpath ( --> XML::XPath ) {
 
     if $!xpath-pages{$!page-names[$!current-page-idx]}:exists {
@@ -492,7 +541,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
     }
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method !set-xpath ( XML::XPath:D $xpath ) {
 
 #note "set xpath $!xpath-pages.elems(), $!page-names[$!current-page-idx], $xpath";
@@ -517,7 +566,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
 #note "Cache xpath $!current-page-name, $!xpath-pages{$!current-page-name}";
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method q ( Str $query, :%variables = %(), --> Hash ) {
 
     # initialize a fresh linked pages list
@@ -538,6 +587,8 @@ class GraphQL::Html:auth<github:MARTIMM> {
 
     # execute the query with any variables
     with $!schema-object.execute( :document($doc), :%variables) {
+
+#note $_.perl;
 
       my Str $jsonText = .to-json;
 
@@ -565,16 +616,16 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $result;
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   # Following methods can be used from query and its variables
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   # uri can be called using the the object too
   method page ( Str:D :$!uri --> Str ) {
 
     self.load-page;
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method base ( --> Str ) {
 
     my $xpath = self.get-xpath;
@@ -587,7 +638,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $base
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method title ( --> Str ) {
 
     my $xpath = self.get-xpath;
@@ -600,7 +651,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
     $txt
   }
 
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method search ( Str :$xpath --> Str ) {
 
     my $xpathObj = self.get-xpath;
@@ -628,7 +679,7 @@ class GraphQL::Html:auth<github:MARTIMM> {
   }
 
 #`{{
-  #----------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   method searchList ( Str :$xpath --> Array[Str] ) {
 
     my Array[Str] $text .= new;
